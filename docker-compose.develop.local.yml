@@ -1,0 +1,85 @@
+version: '3'
+services:
+  mongo:
+    image: mongo:4.1.13
+    restart: always
+    entrypoint: [ "/usr/bin/mongod", "--bind_ip_all", "--replSet", "rs0" ]
+    volumes:
+      - /data/milex/local:/data/db
+    ports:
+      - 27017:27017
+
+  redis:
+    image: redis:6.0.6-alpine
+    restart: always
+    command: redis-server --requirepass redisPassword
+    ports:
+      - 6379:6379
+
+  mongoExpress:
+    image: mongo-express
+    restart: always
+    links:
+      - mongo
+    depends_on:
+      - mongo
+    ports:
+      - 8081:8081
+    environment:
+      - ME_CONFIG_BASICAUTH_USERNAME=mongoUser
+      - ME_CONFIG_BASICAUTH_PASSWORD=mongoPassword
+
+  rabbit:
+    image: rabbitmq:3.7.18-management-alpine
+    restart: always
+    environment:
+      - RABBITMQ_DEFAULT_USER=rabbitUser
+      - RABBITMQ_DEFAULT_PASS=rabbitPassword
+      - RABBITMQ_ERLANG_COOKIE=randomString
+      - RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS=-rabbitmq_management path_prefix "/rabbit"
+    ports:
+      - 5672:5672
+      - 15672:15672
+    volumes:
+      - /data/milex/rabbit/local:/var/lib/rabbitmq
+
+  kurento:
+    build: kurento
+    restart: always
+    ports:
+      - 8888:8888
+      - 8888:8888/udp
+    environment:
+      - KMS_STUN_IP=64.233.165.127
+      - KMS_STUN_PORT=19302
+      - KMS_TURN_URL=turnUser:turnPassword@127.0.0.1
+
+  turn:
+    links:
+      - mongo
+    depends_on:
+      - mongo
+    build: turn
+    restart: always
+    environment:
+      - DEFAULT_TURN_USER=user
+      - DEFAULT_TURN_PASSWORD=password
+      - DEFAULT_TURN_REALM=milex
+    ports:
+    ## STUN/TURN
+      - "3478:3478"
+      - "3478:3478/udp"
+      - "3479:3479"
+      - "3479:3479/udp"
+      - "80:80"
+      - "80:80/udp"
+    ## STUN/TURN SSL
+      - "5349:5349"
+      - "5349:5349/udp"
+      - "5350:5350"
+      - "5350:5350/udp"
+      - "443:443"
+      - "443:443/udp"
+    # Relay Ports
+    #  - "49152-65535:49152-65535"
+    #  - "49152-65535:49152-65535/udp"
